@@ -8,6 +8,7 @@ type Player = {
   name: string
   chips: number
   bet: number
+  roundBet?: number
   folded?: boolean
   isActive?: boolean
   hasDealerChip?: boolean

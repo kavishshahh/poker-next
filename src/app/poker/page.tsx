@@ -4,7 +4,6 @@ import Table from './components/Table'
 import Card from './components/Card'
 import useWebSocketGame from './hooks/useWebSocketGame'
 import './poker.css'
-import ActionPanel from './components/ActionPanel'
 import { soundEffects } from './utils/sounds'
 import { injectAnimationStyles, createFloatingText, animateButton } from './utils/animations'
 
@@ -15,6 +14,8 @@ export default function PokerPage() {
   const [playerName, setPlayerName] = useState('Player')
   const [isNextRoundHovered, setIsNextRoundHovered] = useState(false)
   const [isMuted, setIsMuted] = useState(false)
+  const [raiseAmount, setRaiseAmount] = useState<number>(10)
+  const [showRaiseModal, setShowRaiseModal] = useState(false)
   const callButtonRef = useRef<HTMLButtonElement>(null)
   const foldButtonRef = useRef<HTMLButtonElement>(null)
   const startButtonRef = useRef<HTMLButtonElement>(null)
@@ -27,12 +28,23 @@ export default function PokerPage() {
 
   // Wrapped action handlers with animations and sounds
   const handleCheck = () => {
+    // If there's a bet to match, this becomes a "Call"
+    if (state.highBet > 0) {
+      const currentPlayer = state.players[state.activePlayerIndex]
+      const amountToCall = state.highBet - (currentPlayer?.roundBet || 0)
+      if (amountToCall > 0) {
+        soundEffects.playBet()
+        if (callButtonRef.current) animateButton(callButtonRef.current, 'action-bet')
+        createFloatingText(`💰 CALL ${amountToCall}`, window.innerWidth / 2, window.innerHeight / 2, '#00FFCC')
+        actions.bet(amountToCall)
+        return
+      }
+    }
+    
+    // Otherwise it's a "Check"
     soundEffects.playCall()
     if (callButtonRef.current) animateButton(callButtonRef.current, 'action-call')
-    const playerPos = state.players[state.activePlayerIndex]
-    if (playerPos) {
-      createFloatingText('✓ CHECK', window.innerWidth / 2, window.innerHeight / 2, '#00FFCC')
-    }
+    createFloatingText('✓ CHECK', window.innerWidth / 2, window.innerHeight / 2, '#00FFCC')
     actions.check()
   }
 
@@ -254,12 +266,6 @@ export default function PokerPage() {
         </div>
       </div>
 
-      {/* Bet Slider - positioned at bottom left when active */}
-      {canAct && isPlayerTurn && (
-        <div style={{ position: 'absolute', bottom: 80, left: 20, zIndex: 300, width: 350 }}>
-          <ActionPanel pot={state.pot} onBet={handleBet} />
-        </div>
-      )}
 
       {/* Main Table */}
       <Table state={state} actions={actions} />
@@ -367,19 +373,159 @@ export default function PokerPage() {
             </button>
           ) : canAct && isPlayerTurn ? (
             <>
-              <button ref={callButtonRef} className='action-button' onClick={handleCheck} style={{ borderRadius: 25, padding: '12px 40px', background: 'linear-gradient(135deg, #00BFFF 0%, #00FFFF 100%)', color: '#000', fontWeight: 'bold', boxShadow: '0 0 15px rgba(0, 191, 255, 0.8)', border: 'none', cursor: 'pointer', fontSize: 14 }}>✓ Call/Check</button>
-              <button ref={foldButtonRef} className='fold-button' onClick={handleFold} style={{ borderRadius: 25, padding: '12px 40px', background: 'linear-gradient(135deg, #FF6B35 0%, #FF8C42 100%)', color: '#fff', fontWeight: 'bold', boxShadow: '0 0 15px rgba(255, 107, 53, 0.8)', border: 'none', cursor: 'pointer', fontSize: 14 }}>🚫 Fold</button>
+              <button ref={callButtonRef} className='action-button' onClick={handleCheck} style={{ borderRadius: 25, padding: '12px 40px', background: 'linear-gradient(135deg, #00BFFF 0%, #00FFFF 100%)', color: '#000', fontWeight: 'bold', boxShadow: '0 0 15px rgba(0, 191, 255, 0.8)', border: '2px solid #00FFFF', cursor: 'pointer', fontSize: 14 }}>
+                {state.highBet > 0 ? `💰 CALL ($${state.highBet - (state.players[state.activePlayerIndex]?.roundBet || 0)})` : '✓ CHECK'}
+              </button>
+
+              <button ref={foldButtonRef} className='fold-button' onClick={handleFold} style={{ borderRadius: 25, padding: '12px 40px', background: 'linear-gradient(135deg, #FF6B35 0%, #FF8C42 100%)', color: '#fff', fontWeight: 'bold', boxShadow: '0 0 15px rgba(255, 107, 53, 0.8)', border: '2px solid #FF8C42', cursor: 'pointer', fontSize: 14 }}>🚫 FOLD</button>
+
+              <button 
+                onClick={() => {
+                  soundEffects.playBet()
+                  setShowRaiseModal(true)
+                  setRaiseAmount(Math.max(10, (state.highBet || 10) + 10))
+                }}
+                style={{ borderRadius: 25, padding: '12px 40px', background: 'linear-gradient(135deg, #FFD700 0%, #FFA500 100%)', color: '#000', fontWeight: 'bold', boxShadow: '0 0 15px rgba(255, 215, 0, 0.8)', border: '2px solid #FFD700', cursor: 'pointer', fontSize: 14 }}
+              >
+                🔼 RAISE
+              </button>
             </>
           ) : state.phase === 'showdown' ? (
             <button ref={nextRoundButtonRef} className='action-button' onClick={handleNextRound} style={{ borderRadius: 25, padding: '12px 40px', fontSize: 16, fontWeight: 'bold', background: 'linear-gradient(135deg, #FFD700 0%, #FFA500 100%)', color: '#000', boxShadow: '0 0 20px rgba(255, 215, 0, 0.8)', border: 'none', cursor: 'pointer' }}>🎲 Next Round</button>
           ) : null}
         </div>
 
-        {/* Wait Status */}
-        <div style={{ color: '#FFD700', fontSize: 13, textAlign: 'right', fontWeight: 'bold', minWidth: '150px' }}>
-          {state.phase === 'idle' && state.players.length < 2 ? '⏳ Waiting for players...' : state.phase === 'idle' ? '' : `${state.players[state.activePlayerIndex]?.name}'s Turn`}
+        {/* Wait Status and Betting Info */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 20, fontWeight: 'bold' }}>
+          <div style={{ color: '#FFD700', fontSize: 13, textAlign: 'center', minWidth: '120px' }}>
+            {state.phase === 'idle' && state.players.length < 2 ? '⏳ Waiting for players...' : state.phase === 'idle' ? '' : `${state.players[state.activePlayerIndex]?.name}'s Turn`}
+          </div>
+          
+          {/* Betting Info */}
+          <div style={{ display: 'flex', gap: 15, alignItems: 'center', paddingLeft: 15, borderLeft: '2px solid #FFD700' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ color: '#00FF88', fontSize: 11 }}>Pot:</span>
+              <span style={{ color: '#00FFCC', fontWeight: 'bold', fontSize: 12 }}>{state.pot}</span>
+            </div>
+            {state.highBet > 0 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span style={{ color: '#FF69B4', fontSize: 11 }}>Current Bet:</span>
+                <span style={{ color: '#FFB6D9', fontWeight: 'bold', fontSize: 12 }}>{state.highBet}</span>
+              </div>
+            )}
+            {state.players.length > 0 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span style={{ color: '#00BFFF', fontSize: 11 }}>Your Bet:</span>
+                <span style={{ color: '#00FFFF', fontWeight: 'bold', fontSize: 12 }}>{state.players[state.players.findIndex(p => p.id === state.playerId)]?.roundBet || 0}</span>
+              </div>
+            )}
+          </div>
         </div>
       </div>
+
+      {/* Raise Modal */}
+      {showRaiseModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div style={{ background: 'linear-gradient(135deg, #0a0a14 0%, #16213e 100%)', padding: 30, borderRadius: 16, border: '3px solid #FFD700', boxShadow: '0 0 40px rgba(255, 215, 0, 0.6)', maxWidth: 500, width: '90%' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <h2 style={{ margin: 0, color: '#FFD700', fontSize: 20 }}>Set Raise Amount</h2>
+              <button
+                onClick={() => setShowRaiseModal(false)}
+                style={{ background: '#FF6B35', color: 'white', border: 'none', borderRadius: '50%', width: 30, height: 30, cursor: 'pointer', fontWeight: 'bold', fontSize: 18 }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Slider */}
+            <div style={{ marginBottom: 20 }}>
+              <input
+                type="range"
+                min={state.highBet > 0 ? state.highBet : 1}
+                max={state.players[state.players.findIndex(p => p.id === state.playerId)]?.chips || 1000}
+                value={raiseAmount}
+                onChange={(e) => setRaiseAmount(Number(e.target.value))}
+                style={{ width: '100%', height: 8, borderRadius: 5, background: 'linear-gradient(90deg, #00FF88 0%, #00FFCC 100%)', outline: 'none', cursor: 'pointer' }}
+              />
+            </div>
+
+            {/* Preset Buttons */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10, marginBottom: 20 }}>
+              {['MIN', '1/4', '1/2', '3/4', 'ALL-IN'].map((label, i) => {
+                const playerChips = state.players[state.players.findIndex(p => p.id === state.playerId)]?.chips || 1000
+                const minBet = state.highBet > 0 ? state.highBet : 1
+                let amount = minBet
+                if (label === '1/4') amount = Math.floor(playerChips / 4)
+                if (label === '1/2') amount = Math.floor(playerChips / 2)
+                if (label === '3/4') amount = Math.floor((playerChips * 3) / 4)
+                if (label === 'ALL-IN') amount = playerChips
+                
+                return (
+                  <button
+                    key={i}
+                    onClick={() => setRaiseAmount(amount)}
+                    style={{
+                      padding: '10px',
+                      background: raiseAmount === amount ? 'linear-gradient(135deg, #00FF88 0%, #00FFCC 100%)' : 'rgba(255,255,255,0.1)',
+                      color: raiseAmount === amount ? '#000' : '#00FFCC',
+                      border: raiseAmount === amount ? '2px solid #00FF88' : '2px solid #00FFCC',
+                      borderRadius: 8,
+                      cursor: 'pointer',
+                      fontWeight: 'bold',
+                      fontSize: 12,
+                      transition: 'all 0.3s ease'
+                    }}
+                  >
+                    {label}
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* Amount Display with +/- */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 20, marginBottom: 20, background: 'rgba(0,0,0,0.5)', padding: 15, borderRadius: 12, border: '2px solid #00BFFF' }}>
+              <button
+                onClick={() => setRaiseAmount(Math.max((state.highBet > 0 ? state.highBet : 1), raiseAmount - 10))}
+                style={{ background: '#FF6B35', color: 'white', border: 'none', borderRadius: '50%', width: 40, height: 40, cursor: 'pointer', fontWeight: 'bold', fontSize: 20 }}
+              >
+                −
+              </button>
+              <div style={{ fontSize: 32, fontWeight: 'bold', color: '#00FFCC', minWidth: 120, textAlign: 'center' }}>
+                ${raiseAmount}
+              </div>
+              <button
+                onClick={() => setRaiseAmount(Math.min(state.players[state.players.findIndex(p => p.id === state.playerId)]?.chips || 1000, raiseAmount + 10))}
+                style={{ background: '#00FF88', color: '#000', border: 'none', borderRadius: '50%', width: 40, height: 40, cursor: 'pointer', fontWeight: 'bold', fontSize: 20 }}
+              >
+                +
+              </button>
+            </div>
+
+            {/* Confirm Button */}
+            <button
+              onClick={() => {
+                soundEffects.playWin()
+                handleBet(raiseAmount)
+                setShowRaiseModal(false)
+              }}
+              style={{
+                width: '100%',
+                padding: '15px',
+                background: 'linear-gradient(135deg, #00FF88 0%, #00FFCC 100%)',
+                color: '#000',
+                border: 'none',
+                borderRadius: 12,
+                cursor: 'pointer',
+                fontWeight: 'bold',
+                fontSize: 16,
+                boxShadow: '0 0 20px rgba(0, 255, 136, 0.8)'
+              }}
+            >
+              ✓ CONFIRM
+            </button>
+          </div>
+        </div>
+      )}
 
     </div>
   )
