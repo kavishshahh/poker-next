@@ -500,16 +500,31 @@ wss.on('connection', (ws) => {
           }
           
           const betAmount = amount;
+          const previousRoundBet = player.roundBet;
+          
           player.chips -= betAmount;
           player.roundBet += betAmount;
           game.pot += betAmount;
           player.actedThisRound = true;
           
-          if (betAmount > game.highBet) {
-            game.highBet = betAmount;
-          }
+          // Update highBet to the highest roundBet among all active players
+          const maxRoundBet = Math.max(...game.players.filter(p => !p.folded && p.isActive).map(p => p.roundBet));
+          const wasARaise = maxRoundBet > game.highBet;
+          
+          game.highBet = maxRoundBet;
           
           console.log(`   💰 ${player.name} bet ${betAmount} (round total: ${player.roundBet}, pot: ${game.pot})`);
+          
+          // If this was a raise, other players must respond
+          if (wasARaise) {
+            console.log(`   🔼 Raise detected! Other players must respond`);
+            game.players.forEach(p => {
+              if (p.id !== player.id && !p.folded) {
+                p.actedThisRound = false; // Reset their action flag
+              }
+            });
+          }
+          
           advanceActivePlayer(game);
           
           // Check if all bets matched after bet
