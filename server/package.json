@@ -1,0 +1,22 @@
+{
+  "name": "server",
+  "version": "1.0.0",
+  "description": "",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "uuid": "^13.0.0",
+    "ws": "^8.19.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.11"
+  }
+}
