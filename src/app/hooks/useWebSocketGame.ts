@@ -209,6 +209,7 @@ export default function useWebSocketGame() {
       actionInProgress: false,
       playerId: '',
       winner: null,
+      foldWinner: null,
     })
     setError('')
   }, [])
