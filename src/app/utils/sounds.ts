@@ -74,8 +74,22 @@ class SoundEffects {
   }
 
   playCheck() {
-    // Soft single beep - "check" sound
-    this.play(440, 0.2, 'sine')
+    // Table tap sound - lower frequency quick tap
+    if (!this.audioContext || this.isMuted) return
+    const osc = this.audioContext.createOscillator()
+    const gain = this.audioContext.createGain()
+
+    osc.connect(gain)
+    gain.connect(this.audioContext.destination)
+
+    osc.type = 'sine'
+    osc.frequency.value = 150
+    
+    gain.gain.setValueAtTime(0.7, this.audioContext.currentTime)
+    gain.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.1)
+
+    osc.start(this.audioContext.currentTime)
+    osc.stop(this.audioContext.currentTime + 0.1)
   }
 
   playWin() {

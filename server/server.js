@@ -178,6 +178,8 @@ function advancePhase(game) {
   const phases = ['betting1', 'flop', 'betting2', 'turn', 'betting3', 'river', 'betting4', 'showdown'];
   const currentIndex = phases.indexOf(game.phase);
   
+  console.log(`   🔄 Advancing from phase: ${game.phase} (index ${currentIndex})`);
+  
   if (currentIndex === -1) return;
   
   // Check if all active players are all-in
@@ -210,6 +212,17 @@ function advancePhase(game) {
     if (winner) {
       winner.chips += game.pot;
       console.log(`   🏆 Winner: ${winner.name} wins ${game.pot} chips! (${winReason})`);
+      
+      // Evaluate both players' hands for display
+      const playerHandEvals = game.players
+        .filter(p => !p.folded)
+        .map(p => ({
+          id: p.id,
+          name: p.name,
+          hand: p.hand,
+          ...evaluateHand(p.hand, game.community)
+        }));
+      
       game.winner = {
         id: winner.id,
         name: winner.name,
@@ -217,7 +230,8 @@ function advancePhase(game) {
         potWon: game.pot,
         reason: winReason,
         hand: winner.hand,
-        handType: winner.handType || 'High Card'
+        handType: winner.handType || 'High Card',
+        allHands: playerHandEvals
       };
     }
     return;
@@ -229,10 +243,12 @@ function advancePhase(game) {
   }
   
   game.phase = phases[nextIndex];
+  console.log(`   ➡️  Advanced to phase: ${game.phase} (index ${nextIndex})`);
   
   // Reset bets AFTER advancing, before dealing new cards
   // This ensures the action state is clean for the next betting round
   if (game.phase.startsWith('betting')) {
+    console.log(`   🔄 Resetting betting state for ${game.phase}`);
     game.players.forEach(p => {
       p.roundBet = 0;
       p.actedThisRound = false;
@@ -244,15 +260,49 @@ function advancePhase(game) {
     const bettingPhases = ['betting1', 'betting2', 'betting3', 'betting4'];
     const bettingIndex = bettingPhases.indexOf(game.phase);
     game.activePlayerIndex = Math.floor(bettingIndex / 2) % 2;
+    console.log(`   👤 Active player set to: ${game.players[game.activePlayerIndex]?.name} (index ${game.activePlayerIndex})`);
   }
   
   // Deal community cards on appropriate phases
   if (game.phase === 'flop') {
     dealCommunityCards(game, 3);
+    // Immediately advance to betting2 after dealing flop
+    game.phase = 'betting2';
+    game.players.forEach(p => {
+      p.roundBet = 0;
+      p.actedThisRound = false;
+    });
+    game.highBet = 0;
+    // Keep consistent: player 0 always acts first
+    game.activePlayerIndex = 0;
+    console.log(`   ➡️  Auto-advanced to betting2 after flop`);
+    console.log(`   👤 Active player set to: ${game.players[game.activePlayerIndex]?.name} (index ${game.activePlayerIndex})`);
   } else if (game.phase === 'turn') {
     dealCommunityCards(game, 1);
+    // Immediately advance to betting3 after dealing turn
+    game.phase = 'betting3';
+    game.players.forEach(p => {
+      p.roundBet = 0;
+      p.actedThisRound = false;
+    });
+    game.highBet = 0;
+    // Keep consistent: player 0 always acts first
+    game.activePlayerIndex = 0;
+    console.log(`   ➡️  Auto-advanced to betting3 after turn`);
+    console.log(`   👤 Active player set to: ${game.players[game.activePlayerIndex]?.name} (index ${game.activePlayerIndex})`);
   } else if (game.phase === 'river') {
     dealCommunityCards(game, 1);
+    // Immediately advance to betting4 after dealing river
+    game.phase = 'betting4';
+    game.players.forEach(p => {
+      p.roundBet = 0;
+      p.actedThisRound = false;
+    });
+    game.highBet = 0;
+    // Keep consistent: player 0 always acts first
+    game.activePlayerIndex = 0;
+    console.log(`   ➡️  Auto-advanced to betting4 after river`);
+    console.log(`   👤 Active player set to: ${game.players[game.activePlayerIndex]?.name} (index ${game.activePlayerIndex})`);
   } else if (game.phase === 'showdown') {
     // Determine winner
     const activePlayers = game.players.filter(p => !p.folded);
@@ -268,6 +318,17 @@ function advancePhase(game) {
     }
     
     winner.chips += game.pot;
+    
+    // Evaluate both players' hands for display
+    const playerHandEvals = game.players
+      .filter(p => !p.folded)
+      .map(p => ({
+        id: p.id,
+        name: p.name,
+        hand: p.hand,
+        ...evaluateHand(p.hand, game.community)
+      }));
+    
     game.winner = {
       id: winner.id,
       name: winner.name,
@@ -275,7 +336,8 @@ function advancePhase(game) {
       potWon: game.pot,
       reason: winReason,
       hand: winner.hand,
-      handType: winner.handType || 'High Card'
+      handType: winner.handType || 'High Card',
+      allHands: playerHandEvals  // Include all player hands for display
     };
     
     console.log(`   🏆 Winner: ${winner.name} wins ${game.pot} chips! (${winReason})`);
@@ -510,6 +572,7 @@ wss.on('connection', (ws) => {
         }
 
         // Validate it's this player's turn (only for active betting phases)
+        console.log(`   🎯 Turn check: phase=${game.phase}, playerIndex=${playerIndex}, activePlayerIndex=${game.activePlayerIndex}`);
         if (game.phase.startsWith('betting') && playerIndex !== game.activePlayerIndex) {
           console.log(`   ❌ Not ${game.players[playerIndex].name}'s turn (current: ${game.players[game.activePlayerIndex].name})\n`);
           ws.send(JSON.stringify({
@@ -536,6 +599,14 @@ wss.on('connection', (ws) => {
             console.log(`   🏆 ${winner.name} wins ${game.pot} chips (others folded)!`);
             game.phase = 'idle';
             game.pot = 0;
+            game.foldWinner = {
+              id: winner.id,
+              name: winner.name,
+              chips: winner.chips,
+              potWon: game.pot,
+              foldedPlayerId: player.id,
+              foldedPlayerName: player.name
+            };
             game.players.forEach(p => {
               p.bet = 0;
               p.folded = false;
@@ -643,6 +714,7 @@ function advanceActivePlayer(game) {
   if (activePlayers.length <= 1) return;
   
   const currentPlayerIndex = game.activePlayerIndex;
+  const currentPlayerName = game.players[currentPlayerIndex]?.name || 'Unknown';
   let nextIndex = (currentPlayerIndex + 1) % game.players.length;
   
   // Skip folded players and all-in players (chips === 0)
@@ -655,10 +727,13 @@ function advanceActivePlayer(game) {
   // If all remaining active players are all-in or folded, we've looped through everyone
   if (skipCount >= game.players.length) {
     // All remaining players are all-in, end the betting round
+    console.log(`   ⏭️  All players all-in or folded, not advancing`);
     return;
   }
   
+  const nextPlayerName = game.players[nextIndex]?.name || 'Unknown';
   game.activePlayerIndex = nextIndex;
+  console.log(`   👉 Active player: ${currentPlayerName} (${currentPlayerIndex}) → ${nextPlayerName} (${nextIndex})`);
 }
 
 function broadcastGameState(gameId) {
@@ -675,6 +750,7 @@ function broadcastGameState(gameId) {
     activePlayerIndex: game.activePlayerIndex,
     minBet: game.minBet,
     winner: game.winner || null,
+    foldWinner: game.foldWinner || null,
   };
 
   const message = JSON.stringify({

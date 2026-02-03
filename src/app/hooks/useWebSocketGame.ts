@@ -30,6 +30,7 @@ export default function useWebSocketGame() {
     actionInProgress: false,
     playerId: '',
     winner: null as any,
+    foldWinner: null as any,
   })
 
   const [connectionState, setConnectionState] = useState<'connecting' | 'connected' | 'disconnected' | 'error'>('disconnected')
@@ -62,6 +63,7 @@ export default function useWebSocketGame() {
         activePlayerIndex: data.payload?.activePlayerIndex || 0,
         actionInProgress: data.payload?.actionInProgress || false,
         winner: data.payload?.winner || null,
+        foldWinner: data.payload?.foldWinner || null,
       }))
     }
 
