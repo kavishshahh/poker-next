@@ -238,13 +238,12 @@ function advancePhase(game) {
       p.actedThisRound = false;
     });
     game.highBet = 0;
-    // For heads-up: alternate who goes first in each betting round
-    // betting1 (preflop) → Player 0 goes first
-    // betting2 (flop) → Player 1 goes first
-    // betting3 (turn) → Player 0 goes first
-    // betting4 (river) → Player 1 goes first
-    const bettingRoundNumber = ['betting1', 'betting2', 'betting3', 'betting4'].indexOf(game.phase);
-    game.activePlayerIndex = bettingRoundNumber % 2;
+    // For heads-up: alternate button every 2 betting rounds
+    // betting1 & betting2 → Player 0 (Kavish) goes first
+    // betting3 & betting4 → Player 1 (Player) goes first
+    const bettingPhases = ['betting1', 'betting2', 'betting3', 'betting4'];
+    const bettingIndex = bettingPhases.indexOf(game.phase);
+    game.activePlayerIndex = Math.floor(bettingIndex / 2) % 2;
   }
   
   // Deal community cards on appropriate phases
@@ -507,6 +506,16 @@ wss.on('connection', (ws) => {
         const playerIndex = game.players.findIndex(p => p.id === playerId);
         if (playerIndex === -1) {
           console.log(`   ❌ Player not found\n`);
+          return;
+        }
+
+        // Validate it's this player's turn (only for active betting phases)
+        if (game.phase.startsWith('betting') && playerIndex !== game.activePlayerIndex) {
+          console.log(`   ❌ Not ${game.players[playerIndex].name}'s turn (current: ${game.players[game.activePlayerIndex].name})\n`);
+          ws.send(JSON.stringify({
+            type: 'error',
+            payload: { message: 'Not your turn' }
+          }));
           return;
         }
 

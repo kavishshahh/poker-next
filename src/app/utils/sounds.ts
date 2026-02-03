@@ -1,12 +1,16 @@
-// Sound effects for poker actions using Web Audio API
+// Sound effects for poker actions using MP3 files
 
 class SoundEffects {
-  private audioContext: AudioContext | null = null
   private isMuted = false
+  private callSound: HTMLAudioElement | null = null
+  private raiseSound: HTMLAudioElement | null = null
+  private audioContext: AudioContext | null = null
 
   constructor() {
-    // Initialize AudioContext on first user interaction
+    // Initialize sounds if in browser
     if (typeof window !== 'undefined') {
+      this.callSound = new Audio('/callPokerChips.mp3')
+      this.raiseSound = new Audio('/allinpushchips.mp3')
       document.addEventListener('click', () => this.initAudioContext(), { once: true })
     }
   }
@@ -36,29 +40,17 @@ class SoundEffects {
   }
 
   playCall() {
-    // Two ascending beeps - "call" sound
-    this.play(400, 0.15, 'sine')
-    setTimeout(() => this.play(520, 0.15, 'sine'), 100)
+    // Play call poker chips sound
+    if (this.isMuted || !this.callSound) return
+    this.callSound.currentTime = 0
+    this.callSound.play().catch(() => {})
   }
 
   playBet() {
-    // Rising pitch - "bet" sound
-    if (!this.audioContext || this.isMuted) return
-    const osc = this.audioContext.createOscillator()
-    const gain = this.audioContext.createGain()
-
-    osc.connect(gain)
-    gain.connect(this.audioContext.destination)
-
-    osc.type = 'square'
-    osc.frequency.setValueAtTime(300, this.audioContext.currentTime)
-    osc.frequency.exponentialRampToValueAtTime(800, this.audioContext.currentTime + 0.4)
-
-    gain.gain.setValueAtTime(0.3, this.audioContext.currentTime)
-    gain.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.4)
-
-    osc.start(this.audioContext.currentTime)
-    osc.stop(this.audioContext.currentTime + 0.4)
+    // Play raise/all-in push chips sound
+    if (this.isMuted || !this.raiseSound) return
+    this.raiseSound.currentTime = 0
+    this.raiseSound.play().catch(() => {})
   }
 
   playFold() {
