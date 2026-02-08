@@ -1,36 +1,99 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🃏 Texas Hold'em Poker on Yellow Network & Base
 
-## Getting Started
+## Short Description
+Gasless L2 Poker using Yellow Network for state channels and Base for identity.
 
-First, run the development server:
+## Detailed Description
+This project is a decentralized, 2-player Texas Hold'em Poker game that showcases the power of Layer 2 solutions for high-frequency gaming. It overcomes the latency and gas cost issues of traditional on-chain games by moving the gameplay (dealing, betting, folding) to off-chain state channels, while retaining the security of on-chain asset settlement.
 
+Players connect securely via their Base wallets, authenticated by Basenames (ENS on Base). Game sessions are managed as App Sessions on the Yellow Network, allowing for instant, gasless interactions. Funds are only moved on-chain during the initial deposit and final settlement, ensuring a seamless and cost-effective user experience.
+
+## How It's Made
+The game is built using a combination of next-generation Web3 technologies to deliver a seamless experience. The core gameplay logic runs on an off-chain infrastructure powered by the Yellow Network SDK, specifically utilizing App Sessions to manage game states securely without gas fees. Each player interaction, such as betting or folding, is cryptographically signed and exchanged instantly through these state channels. For identity and settlement, the application integrates with the Base blockchain, using Basenames to resolve human-readable identities like alice.base.eth directly within the UI. The frontend is developed with Next.js and React for a responsive interface, while real-time communication is handled via WebSockets to ensure zero latency during gameplay. On-chain transactions are limited to the initial funding and final settlement of the game session, combining the speed of traditional gaming with the security of blockchain assets.
+
+---
+
+## 🚀 Quick Start
+
+### Prerequisites
+- Node.js 18+
+- [Yellow Network Account](https://yellow.org/)
+- Base Mainnet Wallet with USDC
+
+### Installation
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/kavishshahh/poker-next.git
+   cd poker-next
+   ```
+
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
+
+3. **Configure Environment**
+   Create a `.env` file in `server/` with your wallet keys:
+   ```env
+   PRIVATE_KEY=your_alice_private_key
+   PRIV_KEY=your_bob_private_key
+   RPC_URL=https://mainnet.base.org
+   ```
+
+---
+
+## 🎮 Running the Demo
+
+The project includes a complete script-based demo simulating a 2-player game.
+
+### 1. Start the Backend & Frontend
+Open two terminal windows:
+
+**Terminal 1 (Backend Server):**
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+# Needed for WebSocket connections
+npx tsx server/server.ts
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+**Terminal 2 (Frontend - Optional for script demo):**
+```bash
+npm run dev
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 2. Run the Poker Simulation
+Run the automated game script to see a full hand played out on the console:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+cd server
+npx tsx scripts/poker-game.ts
+```
 
-## Learn More
+**What happens in the script:**
+1. 🔐 Authenticates Alice & Bob with Yellow Network
+2. 💰 Creates a Poker App Session (0.01 USDC buy-in)
+3. 🃏 Deals random hole cards
+4. 📢 Simulates betting rounds (Pre-flop → River)
+5. 🏆 Determines winner at Showdown
+6. 💸 Settles funds on-chain via App Session closure
 
-To learn more about Next.js, take a look at the following resources:
+### 3. Manage Funds (Optional)
+Scripts to manage your Yellow Network channels:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- **Check Balance**: `npx tsx scripts/check-balance.ts`
+- **Deposit to Custody**: `npx tsx scripts/deposit.ts -a 0.1`
+- **Create Channel**: `npx tsx scripts/create-channel.ts -a 0.05`
+- **Move to Unified Balance**: `npx tsx scripts/resize-channel.ts -a`
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+---
 
-## Deploy on Vercel
+## 🛠️ Technical Stack
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- **Frontend**: Next.js, React, Tailwind CSS
+- **Blockchain**: Base (Coinbase L2)
+- **Identity**: Basenames (ENS on Base)
+- **State Channels**: Yellow Network SDK (`@erc7824/nitrolite`)
+- **Web3**: Wagmi, Viem, RainbowKit
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 📄 License
+MIT
