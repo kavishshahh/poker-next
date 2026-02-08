@@ -2,6 +2,7 @@
 import React from 'react'
 import Card from './Card'
 import HiddenCard from './HiddenCard'
+import { PlayerName } from './PlayerName'
 
 export default function PlayerSeat({ player, position = 0, currentPlayerId, phase }: any) {
   if (!player) return null
@@ -11,14 +12,23 @@ export default function PlayerSeat({ player, position = 0, currentPlayerId, phas
   const dealerChipImageURL = '/old-assets/chip.svg'
   const avatarURL = player.avatarURL || '/old-assets/boy.svg'
 
+  // Use wallet address for Basename lookup if available
+  const walletAddress = player.walletAddress as `0x${string}` | undefined
+
   return (
     <div className={`player-entity--wrapper p${position}`}>
       <div className="player-entity--container">
         <div className="player-avatar--container">
           <img className={`player-avatar--image${player.isActive ? ' activePlayer' : ''}`} src={avatarURL} alt="Player Avatar" />
-          <h5 className="player-info--name">{player.name}</h5>
+          <h5 className="player-info--name">
+            {walletAddress ? (
+              <PlayerName address={walletAddress} />
+            ) : (
+              player.name
+            )}
+          </h5>
           <div className="player-info--stash--container">
-            <img className="player-info--stash--image" src={chipCountImageURL} alt="Player Stash"/>
+            <img className="player-info--stash--image" src={chipCountImageURL} alt="Player Stash" />
             <h5 style={{ margin: 0 }}>{player.chips ?? player.stack}</h5>
           </div>
           <div className="player-info--bet--container">
@@ -27,7 +37,7 @@ export default function PlayerSeat({ player, position = 0, currentPlayerId, phas
           </div>
           {player.hasDealerChip ? (
             <div className="dealer-chip-icon-container">
-              <img src={dealerChipImageURL} alt="Dealer Chip"/>
+              <img src={dealerChipImageURL} alt="Dealer Chip" />
             </div>
           ) : null}
         </div>
@@ -44,3 +54,4 @@ export default function PlayerSeat({ player, position = 0, currentPlayerId, phas
     </div>
   )
 }
+
